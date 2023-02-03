@@ -2282,16 +2282,29 @@ __load_completion()
         backslash=\\
     fi
 
+    local compfile_fail=
     for dir in "${dirs[@]}"; do
         [[ -d $dir ]] || continue
+        compfile_fail=1
         for compfile in "$cmd" "$cmd.bash" "_$cmd"; do
             compfile="$dir/$compfile"
             # Avoid trying to source dirs; https://bugzilla.redhat.com/903540
             if [[ -f $compfile ]] && . "$compfile" &>/dev/null; then
-                [[ $backslash ]] && $(complete -p "$cmd") "\\$cmd"
-                return 0
+                compfile_fail=0
+                break
             fi
         done
+        if [[ $compfile_fail = 0 ]]; then
+            for compfiles in "$cmd-*" "$cmd-*.bash" "_$cmd-*"; do
+                compfiles="$dir/$compfiles"
+                for compfile in $compfiles; do
+                    # Avoid trying to source dirs; https://bugzilla.redhat.com/903540
+                    [[ -f $compfile ]] && . "$compfile" &>/dev/null
+                done
+            done
+            [[ $backslash ]] && $(complete -p "$cmd") "\\$cmd"
+            return 0
+        fi
     done
 
     # Look up simple "xspec" completions
